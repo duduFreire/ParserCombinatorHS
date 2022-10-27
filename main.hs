@@ -46,6 +46,7 @@ spanP :: (Char -> Bool) -> Parser String
 spanP f = Parser $ \s -> Just $ swap $ span f s
 
 spanQuote :: String -> (String, String)
+spanQuote (x:ys) | x == '\"' = ("", ys)
 spanQuote (x:y:ys) | x /= '\\' && y == '"' = ([x], ys)
                    | otherwise = (x:last1, last2) where
                     (last1, last2) = spanQuote (y:ys)
@@ -77,8 +78,7 @@ parseNumber = flattenParser $ f <$> spanP isDigit where
     f s = JSONNumber <$> (readMaybe s :: Maybe Int)
 
 parseString :: Parser JSONValue
-parseString = fmap JSONString $ quoteP *> spanQuoteP where
-    quoteP = charP '"'
+parseString = fmap JSONString $ charP '"' *> spanQuoteP
 
 wsP :: Parser String
 wsP = spanP isSpace
@@ -94,6 +94,9 @@ parseArray = (fmap JSONArray $ charP '[' *> wsP *> ((:) <$> parseValue)
 parseObjectPair :: Parser (String, JSONValue)
 parseObjectPair = (wsP *> charP '"' *> ((,) <$> spanQuoteP)) <*>
     (wsP *> charP ':' *> wsP *> parseValue)
+
+parseEmptyString :: Parser JSONValue
+parseEmptyString = JSONString <$> stringP "\"\""
 
 parseObject :: Parser JSONValue
 parseObject = fmap JSONObject $ wsP *> charP '{' *> ((:) <$> parseObjectPair) <*>
