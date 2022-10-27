@@ -1,7 +1,7 @@
 {-# LANGUAGE InstanceSigs #-}
 module Main where
 
-import Control.Applicative ( Alternative((<|>), empty))
+import Control.Applicative ( Alternative((<|>), empty), some, many)
 import Data.Tuple ( swap )
 import Data.Char ( isDigit, isSpace )
 import Text.Read (readMaybe)
@@ -74,6 +74,12 @@ parseString = fmap JSONString $ quoteP *> spanP (/= '"') <* quoteP where
 wsP :: Parser String
 wsP = spanP isSpace
 
+parseArrayComma :: Parser JSONValue
+parseArrayComma = wsP *> charP ',' *> wsP *> parseValue
+
+parseArray :: Parser JSONValue
+parseArray = fmap JSONArray $ charP '[' *> wsP *> (pure (:) <*> parseValue) <*> many parseArrayComma <* wsP <* charP ']'
+
 parseObject :: Parser JSONValue
 parseObject = Parser $ \s -> do
     (rest1, parsed1) <- runParser (charP '{' *> wsP *> charP '"' *> spanP (/= '"') <* charP '"') s
@@ -82,7 +88,7 @@ parseObject = Parser $ \s -> do
 
 
 parseValue :: Parser JSONValue
-parseValue = parseObject <|> parseString <|> parseNumber <|> parseBool <|> parseNull
+parseValue = parseArray <|> parseObject <|> parseString <|> parseNumber <|> parseBool <|> parseNull
 
 main :: IO ()
 main = undefined
