@@ -42,9 +42,6 @@ parseNumber = flattenParser $ f <$> spanP isDigit where
 parseString :: Parser JSONValue
 parseString = fmap JSONString $ charP '"' *> spanQuoteP
 
-wsP :: Parser String
-wsP = spanP isSpace
-
 parseArrayComma :: Parser JSONValue
 parseArrayComma = wsP *> charP ',' *> wsP *> parseValue
 

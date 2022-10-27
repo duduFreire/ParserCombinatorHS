@@ -1,5 +1,5 @@
 {-# LANGUAGE InstanceSigs #-}
-module MyParser (Parser (..), charP, stringP, spanQuoteP, spanP, flattenParser) where
+module MyParser (Parser (..), charP, stringP, spanQuoteP, spanP, wsP, flattenParser, charPredP) where
 
 import System.IO
 import Control.Applicative ( Alternative((<|>), empty), many)
@@ -42,6 +42,9 @@ stringP = traverse charP
 spanP :: (Char -> Bool) -> Parser String
 spanP f = Parser $ \s -> Just $ swap $ span f s
 
+wsP :: Parser String
+wsP = spanP isSpace
+
 spanQuote :: String -> (String, String)
 spanQuote (x:ys) | x == '\"' = ("", ys)
 spanQuote (x:y:ys) | x /= '\\' && y == '"' = ([x], ys)
@@ -57,3 +60,9 @@ flattenParser p1 = Parser $ \s -> do
     (rest, parsed) <- runParser p1 s
     result <- parsed
     return (rest, result)
+
+charPredP :: (Char -> Bool) -> Parser Char
+charPredP f = Parser $ \s -> handle s where
+    handle "" = Nothing
+    handle (x:xs) | f x = Just (xs, x)
+                  | otherwise = Nothing
