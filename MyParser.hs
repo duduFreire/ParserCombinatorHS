@@ -1,5 +1,5 @@
 {-# LANGUAGE InstanceSigs #-}
-module MyParser (Parser (..), charP, stringP, spanQuoteP, spanP, wsP, flattenParser, charPredP) where
+module MyParser (Parser (..), charP, stringP, spanQuoteP, spanP, wsP, flattenParser, charPredP, natP) where
 
 import System.IO
 import Control.Applicative ( Alternative((<|>), empty), many)
@@ -35,6 +35,9 @@ charP :: Char -> Parser Char
 charP x = Parser $ \s -> f s where
     f (y:ys) | x == y = Just (ys, y)
     f _ = Nothing
+
+natP :: Parser Int
+natP = fmap read $ spanP isDigit
 
 stringP :: String -> Parser String
 stringP = traverse charP
