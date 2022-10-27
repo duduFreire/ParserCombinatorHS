@@ -8,9 +8,21 @@ import Data.Char ( isDigit, isSpace )
 import Text.Read (readMaybe)
 
 data JSONValue = JSONNumber !Int | JSONString !String | JSONNull | JSONBool !Bool |
-                 JSONArray ![JSONValue] | JSONObject ![(String, JSONValue)] deriving Show
+                 JSONArray ![JSONValue] | JSONObject ![(String, JSONValue)] 
 
 newtype Parser a = Parser { runParser :: String -> Maybe (String, a) }
+
+instance Show JSONValue where
+    show = showIdent 2 where
+        showIdent _ (JSONNumber n) = show n
+        showIdent _ (JSONString s) = show s
+        showIdent _ JSONNull = "null"
+        showIdent _ (JSONBool x) = show x
+        showIdent _ (JSONArray x) = show x
+        showIdent k (JSONObject x) = "{\n" ++ (showList (k+2) x) ++ "\n" ++ replicate (k-2) ' ' ++ "}" where
+            showList k [] = replicate k ' '
+            showList k [(prop, val)] = replicate k ' ' ++ (show prop) ++ " : " ++ (show val)
+            showList k ((prop,val):xs) = replicate k ' ' ++  show prop ++ " : " ++ show val ++ ",\n" ++ (showList k xs)
 
 instance Functor Parser where
     fmap :: (a -> b) -> Parser a -> Parser b
