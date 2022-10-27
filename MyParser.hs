@@ -1,11 +1,9 @@
 {-# LANGUAGE InstanceSigs #-}
 module MyParser (Parser (..), charP, stringP, spanQuoteP, spanP, wsP, flattenParser, charPredP, natP) where
 
-import System.IO
-import Control.Applicative ( Alternative((<|>), empty), many)
+import Control.Applicative ( Alternative((<|>), empty))
 import Data.Tuple ( swap )
 import Data.Char ( isDigit, isSpace )
-import Text.Read (readMaybe)
 
 newtype Parser a = Parser { runParser :: String -> Maybe (String, a) }
 
@@ -37,7 +35,7 @@ charP x = Parser $ \s -> f s where
     f _ = Nothing
 
 natP :: Parser Int
-natP = fmap read $ spanP isDigit
+natP = read <$> spanP isDigit
 
 stringP :: String -> Parser String
 stringP = traverse charP
