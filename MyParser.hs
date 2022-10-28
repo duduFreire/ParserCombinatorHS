@@ -19,6 +19,7 @@ where
 import Control.Applicative (Alternative (empty, (<|>)))
 import Data.Char (isDigit, isSpace, toLower)
 import Data.Tuple (swap)
+import Text.Read (readMaybe)
 
 newtype Parser a = Parser {runParser :: String -> Maybe (String, a)}
 
@@ -58,7 +59,7 @@ iCharP x = Parser $ \s -> f s
     f _ = Nothing
 
 natP :: Parser Int
-natP = read <$> spanP isDigit
+natP = flattenParser $ readMaybe <$> spanP isDigit
 
 stringP :: String -> Parser String
 stringP = traverse charP

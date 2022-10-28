@@ -35,12 +35,7 @@ parseNull = Parser $ \s -> do
   return (rest, JSONNull)
 
 parseBool :: Parser JSONValue
-parseBool = JSONBool . f <$> (stringP "true" <|> stringP "false")
-  where
-    f "true" = True
-    f "false" = False
-    -- TODO: make this better
-    f _ = undefined
+parseBool = fmap JSONBool $ (True <$ stringP "true") <|> (False <$ stringP "false")
 
 parseNumber :: Parser JSONValue
 parseNumber = flattenParser $ f <$> spanP isDigit
@@ -78,10 +73,6 @@ parseObject =
 
 parseValue :: Parser JSONValue
 parseValue = parseArray <|> parseObject <|> parseString <|> parseNumber <|> parseBool <|> parseNull
-
-forceMaybe :: Maybe a -> a
-forceMaybe (Just x) = x
-forceMaybe Nothing = undefined
 
 main :: IO ()
 main = do
