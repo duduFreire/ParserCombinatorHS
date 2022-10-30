@@ -1,120 +1,28 @@
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TupleSections #-}
 
-module MyParser
-  ( Parser (..),
-    charP,
-    stringP,
-    spanQuoteP,
-    spanP,
-    wsP,
-    flattenParser,
-    charPredP,
-    natP,
-    iCharP,
-    iStringP,
-    unpairParser,
-  )
-where
+module MyParser where
 
-import Control.Applicative (Alternative (empty, (<|>)))
-import Data.Char (isDigit, isSpace, toLower)
-import Data.Tuple (swap)
-import Text.Read (readMaybe)
+newtype State s a = State {runState :: s -> (a, s)}
 
-newtype Parser a = Parser {runParser :: String -> Maybe (String, a)}
+instance Functor (State s) where
+  fmap :: (a -> b) -> State s a -> State s b
+  fmap f (State x) = State $ \state -> let (result, state') = x state in (f result, state')
 
-instance Functor Parser where
-  fmap :: (a -> b) -> Parser a -> Parser b
-  fmap f p = Parser $ \s -> g s
-    where
-      g s = do
-        (remaining, parsed) <- runParser p s
-        return (remaining, f parsed)
+instance Applicative (State s) where
+  pure :: a -> State s a
+  pure x = State (x,)
 
-instance Applicative Parser where
-  pure :: a -> Parser a
-  pure x = Parser $ \s -> Just (s, x)
-  (<*>) :: Parser (a -> b) -> Parser a -> Parser b
-  p1 <*> p2 = Parser $ \s -> do
-    (rest1, parsed1) <- runParser p1 s
-    (rest2, parsed2) <- runParser p2 rest1
-    return (rest2, parsed1 parsed2)
+  (<*>) :: State s (a -> b) -> State s a -> State s b
+  (State f) <*> (State x) = State $ \state0 ->
+    let (result1, state1) = f state0
+        (result2, state2) = x state1
+     in (result1 result2, state2)
 
-instance Alternative Parser where
-  empty :: Parser a
-  empty = Parser $ const Nothing
-  (<|>) :: Parser a -> Parser a -> Parser a
-  p1 <|> p2 = Parser $ \s -> runParser p1 s <|> runParser p2 s
+instance Monad (State s) where
+  (>>=) :: State s a -> (a -> State s b) -> State s b
+  (State x) >>= f = State $ \state0 ->
+    let (result1, state1) = x state0
+     in runState (f result1) state1
 
-instance Monad Parser where
-  (>>=) :: Parser a -> (a -> Parser b) -> Parser b
-  (Parser p) >>= f = Parser $ \s -> do
-    (rest1, parsed1) <- p s
-    (rest2, parsed2) <- runParser (f parsed1) rest1
-    return (rest2, parsed2)
-
-charP :: Char -> Parser Char
-charP x = Parser $ \s -> f s
-  where
-    f (y : ys) | x == y = Just (ys, y)
-    f _ = Nothing
-
-iCharP :: Char -> Parser Char
-iCharP x = Parser $ \s -> f s
-  where
-    f (y : ys) | toLower x == toLower y = Just (ys, y)
-    f _ = Nothing
-
-natP :: Parser Int
-natP = flattenParser $ readMaybe <$> spanP isDigit
-
-stringP :: String -> Parser String
-stringP = traverse charP
-
-iStringP :: String -> Parser String
-iStringP = traverse iCharP
-
-unpairParser :: Parser (a, b) -> (Parser a, Parser b)
-unpairParser p = (x, y)
-  where
-    x = Parser $ \s ->
-      ( do
-          (rest, parsed) <- runParser p s
-          return (rest, fst parsed)
-      )
-
-    y = Parser $ \s -> do
-      (rest, parsed) <- runParser p s
-      return (rest, snd parsed)
-
-spanP :: (Char -> Bool) -> Parser String
-spanP f = Parser $ \s -> Just $ swap $ span f s
-
-wsP :: Parser String
-wsP = spanP isSpace
-
-spanQuote :: String -> (String, String)
-spanQuote (x : ys) | x == '\"' = ("", ys)
-spanQuote (x : y : ys)
-  | x /= '\\' && y == '"' = ([x], ys)
-  | otherwise = (x : last1, last2)
-  where
-    (last1, last2) = spanQuote (y : ys)
-spanQuote _ = ("", "")
-
-spanQuoteP :: Parser String
-spanQuoteP = Parser $ \s -> Just $ swap $ spanQuote s
-
-flattenParser :: Parser (Maybe a) -> Parser a
-flattenParser p1 = Parser $ \s -> do
-  (rest, parsed) <- runParser p1 s
-  result <- parsed
-  return (rest, result)
-
-charPredP :: (Char -> Bool) -> Parser Char
-charPredP f = Parser $ \s -> handle s
-  where
-    handle "" = Nothing
-    handle (x : xs)
-      | f x = Just (xs, x)
-      | otherwise = Nothing
+type Parser a = State (String, Int) a
