@@ -46,6 +46,13 @@ instance Alternative Parser where
   (<|>) :: Parser a -> Parser a -> Parser a
   p1 <|> p2 = Parser $ \s -> runParser p1 s <|> runParser p2 s
 
+instance Monad Parser where
+  (>>=) :: Parser a -> (a -> Parser b) -> Parser b
+  (Parser p) >>= f = Parser $ \s -> do
+    (rest1, parsed1) <- p s
+    (rest2, parsed2) <- runParser (f parsed1) rest1
+    return (rest2, parsed2)
+
 charP :: Char -> Parser Char
 charP x = Parser $ \s -> f s
   where
