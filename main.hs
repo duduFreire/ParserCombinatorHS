@@ -76,7 +76,7 @@ parseObjectPair = do
   charP ':'
   wsP
   value <- parseValue
-  return $ (key, value)
+  return (key, value)
 
 parseObject :: Parser JSONValue
 parseObject = JSONObject <$> do
