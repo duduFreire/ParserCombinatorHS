@@ -30,9 +30,7 @@ instance Show JSONValue where
           showList k ((prop, val) : xs) = replicate k ' ' ++ show prop ++ " : " ++ show val ++ ",\n" ++ showList k xs
 
 parseNull :: Parser JSONValue
-parseNull = Parser $ \s -> do
-  (rest, _) <- runParser (stringP "null") s
-  return (rest, JSONNull)
+parseNull = JSONNull <$ stringP "null"
 
 parseBool :: Parser JSONValue
 parseBool = fmap JSONBool $ (True <$ stringP "true") <|> (False <$ stringP "false")
@@ -43,33 +41,58 @@ parseNumber = flattenParser $ f <$> spanP isDigit
     f s = JSONNumber <$> (readMaybe s :: Maybe Int)
 
 parseString :: Parser JSONValue
-parseString = fmap JSONString $ charP '"' *> spanQuoteP
+parseString = JSONString <$> do
+  charP '"'
+  spanQuoteP
 
 parseArrayComma :: Parser JSONValue
-parseArrayComma = wsP *> charP ',' *> wsP *> parseValue
+parseArrayComma = do
+  wsP
+  charP ','
+  wsP
+  parseValue
 
 parseArray :: Parser JSONValue
-parseArray =
-  fmap
-    JSONArray
-    ( charP '[' *> wsP *> ((:) <$> parseValue)
-        <*> many parseArrayComma <* wsP <* charP ']'
-    )
-    <|> fmap (const (JSONArray [])) (charP '[' *> wsP <* charP ']')
+parseArray = fmap JSONArray $ (do
+  charP '['
+  wsP
+  x <- parseValue
+  xs <- many parseArrayComma
+  wsP
+  charP ']'
+  return $ x:xs) <|> do
+  charP '['
+  wsP
+  charP ']'
+  return []
+  
 
 parseObjectPair :: Parser (String, JSONValue)
-parseObjectPair =
-  (wsP *> charP '"' *> ((,) <$> spanQuoteP))
-    <*> (wsP *> charP ':' *> wsP *> parseValue)
-
-parseEmptyString :: Parser JSONValue
-parseEmptyString = JSONString <$> stringP "\"\""
+parseObjectPair = do
+  wsP
+  charP '"'
+  key <- spanQuoteP
+  wsP
+  charP ':'
+  wsP
+  value <- parseValue
+  return $ (key, value)
 
 parseObject :: Parser JSONValue
-parseObject =
-  fmap JSONObject $
-    wsP *> charP '{' *> ((:) <$> parseObjectPair)
-      <*> many (wsP *> charP ',' *> wsP *> parseObjectPair) <* wsP <* charP '}'
+parseObject = JSONObject <$> do
+  wsP
+  charP '{'
+  x <- parseObjectPair
+  xs <- many parseObjectComma
+  wsP
+  charP '}'
+  return $ x:xs 
+  where 
+    parseObjectComma = do
+      wsP
+      charP ','
+      wsP
+      parseObjectPair
 
 parseValue :: Parser JSONValue
 parseValue = parseArray <|> parseObject <|> parseString <|> parseNumber <|> parseBool <|> parseNull
