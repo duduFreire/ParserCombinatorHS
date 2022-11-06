@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use <$>" #-}
 module Main where
 
 import Control.Applicative (Alternative (empty, (<|>)), many)
@@ -15,72 +18,59 @@ data LoopProg
   deriving (Show)
 
 parseVariable :: Parser String
-parseVariable = ((:) <$> charPredP isLetter) <*> spanP (\x -> isLetter x || isDigit x)
-
-parseAssignOp :: Parser String
-parseAssignOp = stringP ":="
+parseVariable =
+  do
+    first <- charPredP isLetter
+    rest <- spanP (\x -> isLetter x || isDigit x)
+    return $ first : rest
 
 parseAssign :: Parser LoopProg
 parseAssign =
-  fmap (uncurry Assign) $
-    (wsP *> ((,) <$> parseVariable))
-      <*> (wsP *> parseAssignOp *> wsP *> natP <* wsP)
+  do
+    var <- parseVariable
+    stringP ":="
+    val <- natP
+    return $ Assign var val
 
 parseIncrement :: Parser LoopProg
 parseIncrement =
-  flattenParser $
-    fmap f $
-      (wsP *> ((,) <$> parseVariable) <* wsP <* parseAssignOp <* wsP)
-        <*> (parseVariable <* wsP <* charP '+' <* wsP <* charP '1' <* wsP)
-  where
-    f (x, y)
-      | x == y = Just $ Increment x
-      | otherwise = Nothing
+  Increment
+    <$> flattenParser
+      ( do
+          var1 <- parseVariable
+          stringP ":="
+          var2 <- parseVariable
+          charP '+'
+          charP '1'
+          return (if var1 == var2 then Just var1 else Nothing)
+      )
 
 parseLoop :: Parser LoopProg
 parseLoop =
-  fmap (uncurry Loop) $
-    (wsP *> iStringP "loop" *> wsP *> ((,) <$> parseVariable) <* wsP <* iStringP "do" <* wsP)
-      <*> (parseLoopProg <* wsP <* iStringP "end" <* wsP)
-
-split :: Char -> String -> (String, String)
-split _ [] = ("", "")
-split x (y : ys)
-  | x == y = ("", ys)
-  | otherwise = (y : last1, last2)
-  where
-    (last1, last2) = split x ys
-
-splitTwice :: Char -> String -> (String, String, String)
-splitTwice x s =
-  let (sp1, sp1') = split x s; (sp2, sp2') = split x sp1'
-   in (sp1, sp2, sp2')
-
-splitP :: Char -> Parser (String, String)
-splitP x = Parser $ \s ->
-  let (parsed1, parsed2, rest) = splitTwice x s
-   in Just (rest, (parsed1, parsed2))
-
-collapseListProg :: LoopProg -> [LoopProg] -> LoopProg
-collapseListProg x [] = x
-collapseListProg x (y : ys) = Compose x (collapseListProg y ys)
+  do
+    iStringP "loop"
+    var <- parseVariable
+    iStringP "do"
+    prog <- parseLoopProg
+    iStringP "end"
+    return $ Loop var prog
 
 parseSingleProg :: Parser LoopProg
 parseSingleProg = parseIncrement <|> parseAssign <|> parseLoop
 
 parseLoopProg :: Parser LoopProg
-parseLoopProg =
-  fmap (uncurry collapseListProg) $
-    ((,) <$> parseSingleProg)
-      <*> many (wsP *> charP ';' *> wsP *> parseSingleProg)
+parseLoopProg = do
+  prog <- parseSingleProg
+  progs <- many $ charP ';' >> parseSingleProg
+  return $ foldr Compose prog progs
 
 main :: IO ()
 main = do
   handle <- openFile "test.loop" ReadMode
   contents <- hGetContents handle
   let parsed = runParser parseLoopProg contents
-  print (snd $ treat parsed)
+  putStrLn $ treat parsed
   hClose handle
   where
-    treat (Just x) = x
-    treat _ = error "Invalid LOOP program"
+    treat (Just ("", x)) = show x
+    treat _ = "Invalid LOOP program"
