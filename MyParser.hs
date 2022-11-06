@@ -10,6 +10,7 @@ module MyParser
     flattenParser,
     charPredP,
     natP,
+    floatP,
     iCharP,
     iStringP,
     unpairParser,
@@ -36,9 +37,9 @@ instance Applicative Parser where
   pure x = Parser $ \s -> Just (s, x)
   (<*>) :: Parser (a -> b) -> Parser a -> Parser b
   p1 <*> p2 = Parser $ \s -> do
-    (rest1, parsed1) <- runParser p1 s
-    (rest2, parsed2) <- runParser p2 rest1
-    return (rest2, parsed1 parsed2)
+    (rest1, parsed1) <- runParser p1 $ dropWhile isSpace s
+    (rest2, parsed2) <- runParser p2 $ dropWhile isSpace rest1
+    return (dropWhile isSpace rest2, parsed1 parsed2)
 
 instance Alternative Parser where
   empty :: Parser a
@@ -49,9 +50,9 @@ instance Alternative Parser where
 instance Monad Parser where
   (>>=) :: Parser a -> (a -> Parser b) -> Parser b
   (Parser p) >>= f = Parser $ \s -> do
-    (rest1, parsed1) <- p s
-    (rest2, parsed2) <- runParser (f parsed1) rest1
-    return (rest2, parsed2)
+    (rest1, parsed1) <- p $ dropWhile isSpace s
+    (rest2, parsed2) <- runParser (f parsed1) (dropWhile isSpace rest1)
+    return (dropWhile isSpace rest2, parsed2)
 
 charP :: Char -> Parser Char
 charP x = Parser $ \s -> f s
@@ -67,6 +68,9 @@ iCharP x = Parser $ \s -> f s
 
 natP :: Parser Int
 natP = flattenParser $ readMaybe <$> spanP isDigit
+
+floatP :: Parser Float
+floatP = flattenParser $ readMaybe <$> spanP (\x -> isDigit x || (x == '.'))
 
 stringP :: String -> Parser String
 stringP = traverse charP

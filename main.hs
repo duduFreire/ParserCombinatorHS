@@ -14,20 +14,21 @@ data JSONValue
   | JSONBool !Bool
   | JSONArray ![JSONValue]
   | JSONObject ![(String, JSONValue)]
+  deriving (Show)
 
-instance Show JSONValue where
-  show = showIdent 2
-    where
-      showIdent _ (JSONNumber n) = show n
-      showIdent _ (JSONString s) = show s
-      showIdent _ JSONNull = "null"
-      showIdent _ (JSONBool x) = show x
-      showIdent _ (JSONArray x) = show x
-      showIdent k (JSONObject x) = "{\n" ++ showList (k + 2) x ++ "\n" ++ replicate (k -2) ' ' ++ "}"
-        where
-          showList k [] = replicate k ' '
-          showList k [(prop, val)] = replicate k ' ' ++ show prop ++ " : " ++ show val
-          showList k ((prop, val) : xs) = replicate k ' ' ++ show prop ++ " : " ++ show val ++ ",\n" ++ showList k xs
+-- instance Show JSONValue where
+--   show = showIdent 2
+--     where
+--       showIdent _ (JSONNumber n) = show n
+--       showIdent _ (JSONString s) = show s
+--       showIdent _ JSONNull = "null"
+--       showIdent _ (JSONBool x) = show x
+--       showIdent _ (JSONArray x) = show x
+--       showIdent k (JSONObject x) = "{\n" ++ showList (k + 2) x ++ "\n" ++ replicate (k -2) ' ' ++ "}"
+--         where
+--           showList k [] = replicate k ' '
+--           showList k [(prop, val)] = replicate k ' ' ++ show prop ++ " : " ++ show val
+--           showList k ((prop, val) : xs) = replicate k ' ' ++ show prop ++ " : " ++ show val ++ ",\n" ++ showList k xs
 
 parseNull :: Parser JSONValue
 parseNull = JSONNull <$ stringP "null"
@@ -41,57 +42,50 @@ parseNumber = flattenParser $ f <$> spanP isDigit
     f s = JSONNumber <$> (readMaybe s :: Maybe Int)
 
 parseString :: Parser JSONValue
-parseString = JSONString <$> do
-  charP '"'
-  spanQuoteP
+parseString =
+  JSONString <$> do
+    charP '"'
+    spanQuoteP
 
 parseArrayComma :: Parser JSONValue
 parseArrayComma = do
-  wsP
   charP ','
-  wsP
   parseValue
 
 parseArray :: Parser JSONValue
-parseArray = fmap JSONArray $ (do
-  charP '['
-  wsP
-  x <- parseValue
-  xs <- many parseArrayComma
-  wsP
-  charP ']'
-  return $ x:xs) <|> do
-  charP '['
-  wsP
-  charP ']'
-  return []
-  
+parseArray =
+  fmap JSONArray $
+    ( do
+        charP '['
+        x <- parseValue
+        xs <- many parseArrayComma
+        charP ']'
+        return $ x : xs
+    )
+      <|> do
+        charP '['
+        charP ']'
+        return []
 
 parseObjectPair :: Parser (String, JSONValue)
 parseObjectPair = do
-  wsP
   charP '"'
   key <- spanQuoteP
-  wsP
   charP ':'
-  wsP
   value <- parseValue
   return (key, value)
 
 parseObject :: Parser JSONValue
-parseObject = JSONObject <$> do
-  wsP
-  charP '{'
-  x <- parseObjectPair
-  xs <- many parseObjectComma
-  wsP
-  charP '}'
-  return $ x:xs 
-  where 
+parseObject =
+  JSONObject <$> do
+    charP '{'
+    x <- parseObjectPair
+    xs <- many parseObjectComma
+    charP '}'
+    return $ x : xs
+  where
     parseObjectComma = do
-      wsP
       charP ','
-      wsP
       parseObjectPair
 
 parseValue :: Parser JSONValue
