@@ -91,6 +91,6 @@ main = do
   line <- getLine
   let result = runParser exprP line
   case result of
-    Just ("", expr) -> print expr
+    Just ("", expr) -> print $ evalExpr expr
     _ -> print "Failed to parse expression."
   main
