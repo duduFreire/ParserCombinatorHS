@@ -66,7 +66,7 @@ parseLoopProg = do
 
 main :: IO ()
 main = do
-  handle <- openFile "test.loop" ReadMode
+  handle <- openFile "tests/test.loop" ReadMode
   contents <- hGetContents handle
   let parsed = runParser parseLoopProg contents
   putStrLn $ treat parsed

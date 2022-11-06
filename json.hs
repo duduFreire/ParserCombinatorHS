@@ -79,7 +79,7 @@ parseValue = parseArray <|> parseObject <|> parseString <|> parseNumber <|> pars
 
 main :: IO ()
 main = do
-  handle <- openFile "test.json" ReadMode
+  handle <- openFile "tests/test.json" ReadMode
   contents <- hGetContents handle
   let parsed = runParser parseValue contents
   print $ treat parsed
