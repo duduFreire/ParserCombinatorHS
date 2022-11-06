@@ -1,6 +1,6 @@
 # ParserCombinatorHS
 
-A simple parser written in Haskell for learning purposes using parser combinators.
+A simple parser written for learning purposes using parser combinators.
 Currently does not include descriptive error messages when the input fails to parse.
 
 - arith.hs: Implements a parser for arithmetic expressions.
