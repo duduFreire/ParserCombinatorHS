@@ -3,6 +3,7 @@
 {-# HLINT ignore "Use <$>" #-}
 module Main where
 
+import qualified Data.Map as Map
 import Control.Applicative (Alternative (empty, (<|>)), many)
 import Data.Char (isDigit, isLetter, isSpace)
 import Data.Tuple (swap)
@@ -62,15 +63,29 @@ parseLoopProg :: Parser LoopProg
 parseLoopProg = do
   prog <- parseSingleProg
   progs <- many $ charP ';' >> parseSingleProg
-  return $ foldr Compose prog progs
+  return $ foldl Compose prog progs
 
 main :: IO ()
-main = do
+main= do
   handle <- openFile "tests/test.loop" ReadMode
+  varsLine <- getLine
+  let maybeVars = readMaybe varsLine :: Maybe [(String, Int)]
   contents <- hGetContents handle
   let parsed = runParser parseLoopProg contents
-  putStrLn $ treat parsed
+  putStrLn $ logProgVars maybeVars parsed
+  putStrLn $ logProgAST parsed
   hClose handle
   where
-    treat (Just ("", x)) = show x
-    treat _ = "Invalid LOOP program"
+    logProgAST (Just ("", x)) = show x
+    logProgAST _ = "Invalid LOOP program"
+    logProgVars (Just vars) (Just ("", x)) = show $ runLoopProg (Map.fromList vars) x
+    logProgVars _ _ = "Invalid LOOP program"
+
+
+runLoopProg :: Map.Map String Int -> LoopProg -> Map.Map String Int
+runLoopProg vars (Assign s i) = Map.union (Map.fromList [(s, i)]) vars
+runLoopProg vars (Increment s) = Map.union (Map.fromList [(s, 1 + Map.findWithDefault 0 s vars)]) vars
+runLoopProg vars (Compose prog1 prog2) = runLoopProg (runLoopProg vars prog1) prog2
+runLoopProg vars (Loop var prog) = loop vars prog (Map.findWithDefault 0 var vars) where
+  loop vars prog 0 = vars
+  loop vars prog n = runLoopProg (loop vars prog (n-1)) prog 
